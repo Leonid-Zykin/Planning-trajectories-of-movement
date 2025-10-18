@@ -5,7 +5,7 @@ import os
 
 class FourWheelMobileRobotVariant5:
     """
-    Модель четырехколесного мобильного робота типа (1,2) для варианта 5
+    Модель четырехколесного мобильного робота с дифференциальным приводом для варианта 5
     """
     
     def __init__(self, L=0.3, W=0.2, R=0.05, m=10.0, I=1.0):
@@ -23,189 +23,177 @@ class FourWheelMobileRobotVariant5:
         self.m = m
         self.I = I
         
-        # Матрица конфигурации приводов для типа (1,2)
-        # Тип (1,2) означает: 1 - передние колеса управляемые, 2 - задние колеса управляемые
+        # Матрица конфигурации для дифференциального привода
+        # v = (v_L + v_R) / 2, omega = (v_R - v_L) / L
         self.B = np.array([
-            [1, 1, 0, 0],  # vx - только передние колеса
-            [0, 0, 1, 1],  # vy - только задние колеса
-            [1, -1, 1, -1] # omega - все колеса для поворота
-        ]) / (2 * R)
-        
-    def dynamics(self, state, t, u):
+            [1, 0],  # v - линейная скорость
+            [0, 1]   # omega - угловая скорость
+        ])
+    
+    def dynamics(self, state, t, control_input):
         """
-        Динамическая модель робота
-        state = [x, y, theta, vx, vy, omega]
-        u = [u1, u2, u3, u4] - управляющие сигналы на колеса
+        Динамика четырехколесного робота с дифференциальным приводом
+        state = [x, y, theta] - позиция и ориентация
+        control_input = [v, omega] - линейная и угловая скорости
         """
-        x, y, theta, vx, vy, omega = state
+        x, y, theta = state
+        v, omega = control_input
         
-        # Преобразование управляющих сигналов в скорости
-        if len(u) == 3:
-            # Если передано 3 управляющих сигнала, расширяем до 4
-            u = np.append(u, 0.0)
-        elif len(u) != 4:
-            raise ValueError("Управляющий сигнал должен быть 3- или 4-мерным")
-            
-        v = self.B @ u
-        
-        # Динамические уравнения
-        dx_dt = vx * np.cos(theta) - vy * np.sin(theta)
-        dy_dt = vx * np.sin(theta) + vy * np.cos(theta)
+        # Динамические уравнения для дифференциального привода
+        dx_dt = v * np.cos(theta)
+        dy_dt = v * np.sin(theta)
         dtheta_dt = omega
         
-        # Упрощенная динамика (без учета сил трения и инерции)
-        dvx_dt = v[0]
-        dvy_dt = v[1] 
-        domega_dt = v[2]
+        return np.array([dx_dt, dy_dt, dtheta_dt])
+    
+    def simulate_trajectory(self, initial_state, control_sequence, time_points):
+        """
+        Симуляция траектории робота
+        """
+        def ode_func(state, t):
+            # Интерполяция управления по времени
+            if len(control_sequence) == 1:
+                control = control_sequence[0]
+            else:
+                # Простая интерполяция для демонстрации
+                control = control_sequence[0]
+            
+            return self.dynamics(state, t, control)
         
-        return [dx_dt, dy_dt, dtheta_dt, dvx_dt, dvy_dt, domega_dt]
+        trajectory = odeint(ode_func, initial_state, time_points)
+        return trajectory
     
-    def simulate(self, x0, t_span, u_func):
+    def generate_trajectory_variant5(self):
         """
-        Симуляция движения робота
-        x0 - начальное состояние
-        t_span - временной интервал
-        u_func - функция управления u(t)
+        Генерация траектории для варианта 5
         """
-        def rhs(state, t):
-            u = u_func(t)
-            return self.dynamics(state, t, u)
-            
-        sol = odeint(rhs, x0, t_span)
-        return sol
-
-def generate_trajectory_variant5(t, R1=7.0, R2=12.0, alpha=np.pi/6, delta=2*np.pi, t_straight=6.0):
-    """
-    Генерация траектории для варианта 5
-    R1 = 7 м - радиус первой окружности
-    R2 = 12 м - радиус второй окружности  
-    alpha = π/6 - угол поворота
-    delta = 2π - угол дуги первой окружности
-    t_straight = 6 сек - время движения по прямой
-    """
-    # Начальная позиция для варианта 5: [0, 3, 2π/3]
-    x0, y0 = 0.0, 3.0
-    theta0 = 2*np.pi/3
+        # Параметры траектории из задания
+        R1 = 7.0
+        delta = 2 * np.pi
+        alpha = np.pi / 6
+        t_straight = 6.0
+        
+        # Начальное состояние
+        initial_state = np.array([0, 3, 2 * np.pi / 3])
+        
+        # Участок 1: Движение по окружности R1
+        t1_duration = R1 * delta / 2.0  # Примерная скорость
+        t1 = np.linspace(0, t1_duration, 500)
+        
+        # Центр первой окружности
+        center_x = initial_state[0] - R1 * np.sin(initial_state[2])
+        center_y = initial_state[1] + R1 * np.cos(initial_state[2])
+        
+        x1 = center_x + R1 * np.sin(initial_state[2] + (delta * t1 / t1_duration))
+        y1 = center_y - R1 * np.cos(initial_state[2] + (delta * t1 / t1_duration))
+        theta1 = initial_state[2] + (delta * t1 / t1_duration)
+        
+        end_state1 = np.array([x1[-1], y1[-1], theta1[-1]])
+        
+        # Участок 2: Движение по прямой
+        t2 = np.linspace(0, t_straight, 200)
+        v_straight = 2.0
+        x2 = end_state1[0] + v_straight * t2 * np.cos(end_state1[2] + alpha)
+        y2 = end_state1[1] + v_straight * t2 * np.sin(end_state1[2] + alpha)
+        theta2 = np.full_like(t2, end_state1[2] + alpha)
+        
+        end_state2 = np.array([x2[-1], y2[-1], theta2[-1]])
+        
+        # Участок 3: Движение по окружности R2
+        R2 = 12.0
+        omega_circle2 = -2.0 / R2  # По часовой стрелке
+        t3_duration = R2 * np.pi / 2.0
+        t3 = np.linspace(0, t3_duration, 500)
+        
+        # Центр второй окружности
+        center_x2 = end_state2[0] - R2 * np.sin(end_state2[2])
+        center_y2 = end_state2[1] + R2 * np.cos(end_state2[2])
+        
+        x3 = center_x2 + R2 * np.sin(end_state2[2] + omega_circle2 * t3)
+        y3 = center_y2 - R2 * np.cos(end_state2[2] + omega_circle2 * t3)
+        theta3 = end_state2[2] + omega_circle2 * t3
+        
+        # Объединяем траектории
+        x_full = np.concatenate((x1, x2, x3))
+        y_full = np.concatenate((y1, y2, y3))
+        theta_full = np.concatenate((theta1, theta2, theta3))
+        
+        return {
+            'x': x_full,
+            'y': y_full,
+            'theta': theta_full,
+            'segments': {
+                'segment1': {'x': x1, 'y': y1, 'theta': theta1, 't': t1},
+                'segment2': {'x': x2, 'y': y2, 'theta': theta2, 't': t2},
+                'segment3': {'x': x3, 'y': y3, 'theta': theta3, 't': t3}
+            }
+        }
     
-    # Параметры траектории
-    v_circle = 1.0  # скорость движения по окружности
-    v_straight = 1.0  # скорость движения по прямой
-    
-    # Временные интервалы
-    t1 = R1 * delta / v_circle  # время движения по первой окружности
-    t2 = t1 + t_straight  # время движения по прямой
-    t3 = t2 + R2 * np.pi / v_circle  # время движения по второй окружности
-    
-    x_traj = np.zeros_like(t)
-    y_traj = np.zeros_like(t)
-    theta_traj = np.zeros_like(t)
-    
-    for i, ti in enumerate(t):
-        if ti <= t1:
-            # Движение по первой окружности (положительное направление)
-            angle = theta0 + delta * ti / t1
-            x_traj[i] = x0 + R1 * np.sin(angle) - R1 * np.sin(theta0)
-            y_traj[i] = y0 + R1 * np.cos(theta0) - R1 * np.cos(angle)
-            theta_traj[i] = angle
-        elif ti <= t2:
-            # Движение по прямой
-            t_straight_local = ti - t1
-            # Конечная точка первой окружности
-            end_angle = theta0 + delta
-            x_end_circle = x0 + R1 * np.sin(end_angle) - R1 * np.sin(theta0)
-            y_end_circle = y0 + R1 * np.cos(theta0) - R1 * np.cos(end_angle)
-            
-            x_traj[i] = x_end_circle + v_straight * t_straight_local * np.cos(end_angle)
-            y_traj[i] = y_end_circle + v_straight * t_straight_local * np.sin(end_angle)
-            theta_traj[i] = end_angle
+    def plot_trajectory(self, trajectory_data, save_path=None):
+        """
+        Построение графика траектории
+        """
+        plt.figure(figsize=(10, 8))
+        
+        # Участки траектории
+        seg1 = trajectory_data['segments']['segment1']
+        seg2 = trajectory_data['segments']['segment2']
+        seg3 = trajectory_data['segments']['segment3']
+        
+        plt.plot(seg1['x'], seg1['y'], 'b-', linewidth=2, label='Участок 1 (Окружность R1=7м)')
+        plt.plot(seg2['x'], seg2['y'], 'g-', linewidth=2, label='Участок 2 (Прямая t=6с)')
+        plt.plot(seg3['x'], seg3['y'], 'r-', linewidth=2, label='Участок 3 (Окружность R2=12м)')
+        
+        # Начальная точка
+        plt.plot(0, 3, 'go', markersize=8, label='Начальная позиция')
+        
+        # Переходные точки
+        plt.plot(seg1['x'][-1], seg1['y'][-1], 'bs', markersize=8, label='Переход 1')
+        plt.plot(seg2['x'][-1], seg2['y'][-1], 'gs', markersize=8, label='Переход 2')
+        
+        # Стрелки для направления
+        x_full = trajectory_data['x']
+        y_full = trajectory_data['y']
+        theta_full = trajectory_data['theta']
+        
+        for i in range(0, len(x_full), 50):
+            plt.arrow(x_full[i], y_full[i], 0.05 * np.cos(theta_full[i]), 0.05 * np.sin(theta_full[i]),
+                      head_width=0.1, head_length=0.1, fc='gray', ec='gray', alpha=0.5)
+        
+        plt.title('Траектория движения четырехколесного робота с дифференциальным приводом (Вариант 5)')
+        plt.xlabel('X, м')
+        plt.ylabel('Y, м')
+        plt.grid(True)
+        plt.axis('equal')
+        plt.legend()
+        
+        if save_path:
+            plt.savefig(save_path, dpi=300, bbox_inches='tight')
+            plt.close()
         else:
-            # Движение по второй окружности (по часовой стрелке)
-            t_circle2 = ti - t2
-            angle2 = np.pi * t_circle2 / (t3 - t2)
-            
-            # Конечная точка прямой
-            end_angle = theta0 + delta
-            x_end_circle = x0 + R1 * np.sin(end_angle) - R1 * np.sin(theta0)
-            y_end_circle = y0 + R1 * np.cos(theta0) - R1 * np.cos(end_angle)
-            x_end_straight = x_end_circle + v_straight * t_straight * np.cos(end_angle)
-            y_end_straight = y_end_circle + v_straight * t_straight * np.sin(end_angle)
-            
-            # Центр второй окружности
-            center_x = x_end_straight + R2 * np.cos(end_angle + alpha)
-            center_y = y_end_straight + R2 * np.sin(end_angle + alpha)
-            
-            # Движение по второй окружности (по часовой стрелке)
-            x_traj[i] = center_x + R2 * np.cos(end_angle + alpha + angle2)
-            y_traj[i] = center_y + R2 * np.sin(end_angle + alpha + angle2)
-            theta_traj[i] = end_angle + alpha + angle2
-    
-    return x_traj, y_traj, theta_traj
-
-def plot_trajectory_variant5(x_traj, y_traj, theta_traj, t, title="Траектория движения робота (вариант 5)"):
-    """Построение графика траектории для варианта 5"""
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 6))
-    
-    # Траектория в плоскости
-    ax1.plot(x_traj, y_traj, 'b-', linewidth=2, label='Траектория')
-    ax1.plot(x_traj[0], y_traj[0], 'go', markersize=8, label='Начало')
-    ax1.plot(x_traj[-1], y_traj[-1], 'ro', markersize=8, label='Конец')
-    
-    # Стрелки направления
-    step = len(t) // 15
-    for i in range(0, len(t), step):
-        ax1.arrow(x_traj[i], y_traj[i], 
-                 0.2 * np.cos(theta_traj[i]), 0.2 * np.sin(theta_traj[i]),
-                 head_width=0.1, head_length=0.1, fc='red', ec='red')
-    
-    ax1.set_xlabel('X (м)')
-    ax1.set_ylabel('Y (м)')
-    ax1.set_title('Траектория в плоскости (вариант 5)')
-    ax1.legend()
-    ax1.grid(True)
-    ax1.axis('equal')
-    
-    # Угол поворота во времени
-    ax2.plot(t, theta_traj, 'g-', linewidth=2)
-    ax2.set_xlabel('Время (с)')
-    ax2.set_ylabel('Угол поворота (рад)')
-    ax2.set_title('Ориентация робота')
-    ax2.grid(True)
-    
-    plt.tight_layout()
-    return fig
+            plt.show()
 
 def main():
-    # Параметры робота для варианта 5
-    robot = FourWheelMobileRobotVariant5(L=0.3, W=0.2, R=0.05, m=10.0, I=1.0)
+    """
+    Основная функция для демонстрации работы модели
+    """
+    # Создание модели робота
+    robot = FourWheelMobileRobotVariant5()
     
-    # Временной интервал (увеличиваем для полной траектории)
-    t = np.linspace(0, 30, 1500)
+    # Генерация траектории
+    trajectory_data = robot.generate_trajectory_variant5()
     
-    # Генерация траектории для варианта 5
-    x_traj, y_traj, theta_traj = generate_trajectory_variant5(t, R1=7.0, R2=12.0, 
-                                                             alpha=np.pi/6, delta=2*np.pi, 
-                                                             t_straight=6.0)
-    
-    # Построение графиков
-    fig = plot_trajectory_variant5(x_traj, y_traj, theta_traj, t)
-    
-    # Сохранение результатов
-    output_dir = "/home/leonidas/projects/itmo/Planning-trajectories-of-movement/lab2/images/task1"
+    # Построение графика
+    output_dir = "images/task1"
     os.makedirs(output_dir, exist_ok=True)
+    output_file = os.path.join(output_dir, "trajectory_variant5_detailed.png")
     
-    fig.savefig(os.path.join(output_dir, "trajectory_variant5.png"), dpi=300, bbox_inches='tight')
-    plt.close()
+    robot.plot_trajectory(trajectory_data, output_file)
+    print(f"Траектория сохранена: {output_file}")
     
-    # Сохранение данных
-    np.savez(os.path.join(output_dir, "trajectory_variant5_data.npz"),
-             t=t, x=x_traj, y=y_traj, theta=theta_traj)
-    
-    print(f"Результаты для варианта 5 сохранены в {output_dir}")
-    print(f"Параметры робота: L={robot.L}, W={robot.W}, R={robot.R}")
-    print(f"Масса: {robot.m} кг, Момент инерции: {robot.I} кг⋅м²")
-    print(f"Тип робота: (1,2) - передние и задние колеса управляемые")
-    print(f"Начальное состояние: [0, 3, 2π/3]")
-    print(f"Параметры траектории: R1=7м, δ=2π, α=π/6, t=6с, R2=12м")
+    # Сохранение данных траектории
+    np.savez(os.path.join(output_dir, "trajectory_variant5_data.npz"), **trajectory_data)
+    print(f"Данные траектории сохранены: {os.path.join(output_dir, 'trajectory_variant5_data.npz')}")
 
 if __name__ == "__main__":
     main()
