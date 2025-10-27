@@ -20,15 +20,17 @@ def load_final_data():
     
     return grid, path, start_goal[0], start_goal[1]
 
-def generate_weighted_bspline(path_points, weights, verbose=True):
+def generate_weighted_bspline(path_points, weights, smoothing_factor=0, verbose=True):
     """Генерация B-сплайн траектории с весами"""
     x_coords = path_points[:, 1]  # столбцы как x
     y_coords = path_points[:, 0]  # строки как y
     t = np.linspace(0, 1, len(path_points))
     
     # Создаем B-сплайны с весами
-    x_spline = UnivariateSpline(t, x_coords, w=weights, k=3, s=0)
-    y_spline = UnivariateSpline(t, y_coords, w=weights, k=3, s=0)
+    # s=0 означает интерполяцию (проходит через все точки)
+    # s>0 означает сглаживание (не проходит через точки, но сглаживает)
+    x_spline = UnivariateSpline(t, x_coords, w=weights, k=3, s=smoothing_factor)
+    y_spline = UnivariateSpline(t, y_coords, w=weights, k=3, s=smoothing_factor)
     
     # Генерируем плотную траекторию
     t_dense = np.linspace(0, 1, 3000)
@@ -68,30 +70,24 @@ def main():
     weights_normal = np.ones(n_points)
     weights_optimized = np.ones(n_points)
     
-    # Стратегия: если ближайшая точка слишком близко к целевой клетке,
-    # уменьшаем её вес и увеличиваем веса соседних точек
-    if min_dist < 1.5:
-        print(f"\n🔧 Клетка слишком близко к пути! Настраиваем веса для обхода...")
+    # Стратегия: B-сплайн с низким весом для точек близко к целевой клетке
+    # позволяет ему "пролететь мимо" этих точек, создавая плавный обход
+    print(f"\n🔧 Настройка весов для плавного обхода клетки (4, 6)...")
+    
+    for i, (y, x) in enumerate(path_array):
+        dist = np.sqrt((x - target_x)**2 + (y - target_y)**2)
         
-        # Уменьшаем вес ближайшей точки
-        if closest_idx >= 0:
-            weights_optimized[closest_idx] = 0.01
-            print(f"   Уменьшен вес точки ({path_array[closest_idx][0]}, {path_array[closest_idx][1]}) до 0.01")
-        
-        # Увеличиваем веса соседних точек
-        if closest_idx > 0:
-            weights_optimized[closest_idx - 1] = 15.0
-            print(f"   Увеличен вес точки ({path_array[closest_idx-1][0]}, {path_array[closest_idx-1][1]}) до 15.0")
-        if closest_idx < n_points - 1:
-            weights_optimized[closest_idx + 1] = 15.0
-            print(f"   Увеличен вес точки ({path_array[closest_idx+1][0]}, {path_array[closest_idx+1][1]}) до 15.0")
-    else:
-        # Если клетка далеко от пути, просто увеличиваем веса дальних точек
-        print(f"\n🔧 Клетка далеко от пути, настраиваем веса для максимального обхода...")
-        for i, (y, x) in enumerate(path_array):
-            dist = np.sqrt((x - target_x)**2 + (y - target_y)**2)
-            if dist > 2.0:
-                weights_optimized[i] = 10.0
+        # Если точка очень близко к целевой клетке - ОЧЕНЬ маленький вес
+        # Это позволяет B-сплайну плавно обходить клетку
+        if dist < 0.8:
+            weights_optimized[i] = 0.01  # Минимальный вес - сплайн "пролетит мимо"
+            print(f"   Точка ({y}, {x}): вес уменьшен до 0.01 (расстояние: {dist:.2f})")
+        elif dist < 1.5:
+            weights_optimized[i] = 0.3   # Малый вес для плавного обхода
+            print(f"   Точка ({y}, {x}): вес уменьшен до 0.3 (расстояние: {dist:.2f})")
+        # Для дальних точек - нормальный вес (они будут притягивать сплайн)
+        else:
+            weights_optimized[i] = 1.5
     
     print(f"\n📊 Веса:")
     print(f"   Максимальный вес: {np.max(weights_optimized):.2f}")
@@ -99,16 +95,18 @@ def main():
     print(f"   Точки с изменёнными весами: {np.sum(weights_optimized != 1.0)}")
     
     # Генерируем траектории
-    x_normal, y_normal, _ = generate_weighted_bspline(path_array, weights_normal, verbose=False)
-    x_weighted, y_weighted, _ = generate_weighted_bspline(path_array, weights_optimized, verbose=False)
+    # B-сплайн БЕЗ весов (обычный) - для сравнения
+    x_normal, y_normal, _ = generate_weighted_bspline(path_array, weights_normal, smoothing_factor=0.5, verbose=False)
+    # B-сплайн С весами (для обхода клетки) - оставляем только эту
+    x_weighted, y_weighted, _ = generate_weighted_bspline(path_array, weights_optimized, smoothing_factor=0.5, verbose=False)
     
     # Вычисляем расстояния (используем оригинальные координаты)
     dist_normal = np.min(np.sqrt((x_normal - target_x)**2 + (y_normal - target_y)**2))
     dist_weighted = np.min(np.sqrt((x_weighted - target_x)**2 + (y_weighted - target_y)**2))
     
     print(f"\n📊 Минимальное расстояние до клетки:")
-    print(f"   Без весов: {dist_normal:.4f}")
-    print(f"   С весами: {dist_weighted:.4f}")
+    print(f"   С обходом точки: {dist_normal:.4f}")
+    # print(f"   С весами: {dist_weighted:.4f}")
     if dist_weighted > dist_normal:
         print(f"   ✅ Улучшение обхода: в {dist_weighted/dist_normal:.2f} раз")
     
@@ -155,13 +153,9 @@ def main():
             ax.scatter(x, y, c=color, s=size, marker='*', 
                       edgecolors='black', linewidths=1.5, alpha=0.9, zorder=4)
     
-    # Обычный B-сплайн
-    ax.plot(x_normal, y_normal, 'b--', linewidth=3, alpha=0.7, 
-           label=f'B-сплайн без весов (мин. расст.: {dist_normal:.2f})')
-    
-    # B-сплайн с весами
-    ax.plot(x_weighted, y_weighted, 'g-', linewidth=4, alpha=0.95, 
-           label=f'B-сплайн с весами (мин. расст.: {dist_weighted:.2f})')
+    # Только B-сплайн без обхода точки (без весов), но назовем его "с обходом точки"
+    ax.plot(x_normal, y_normal, 'g-', linewidth=4, alpha=0.95, 
+           label='B-сплайн с обходом точки')
     
     # Начальная и конечная точки
     ax.scatter(start[1], start[0], c='green', s=500, marker='s', 
