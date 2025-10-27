@@ -1,0 +1,118 @@
+% !TEX program = xelatex
+\documentclass[a4paper,14pt,oneside,openany]{memoir}
+
+%%% Задаем поля, отступы и межстрочный интервал %%%
+\usepackage{amsmath}
+\usepackage[left=30mm, right=15mm, top=20mm, bottom=20mm]{geometry} % Пакет geometry с аргументами для определения полей
+\pagestyle{plain} % Убираем стандарные для данного класса верхние колонтитулы с заголовком текущей главы, оставляем только номер страницы снизу по центру
+\parindent=1.25cm % Абзацный отступ 1.25 см, приблизительно равно пяти знакам, как по ГОСТ
+\usepackage{indentfirst} % Добавляем отступ к первому абзацу
+
+%%% Задаем языковые параметры и шрифт %%%
+
+\usepackage[english, russian]{babel}                % Настройки для русского языка как основного в тексте
+\babelfont{rm}{Times New Roman}                     % TMR в качестве базового roman-щрифта
+
+%%% Задаем стиль заголовков и подзаголовков в тексте %%%
+
+\setsecnumdepth{subsection} % Номера разделов считать до третьего уровня включительно, т.е. нумеруются только главы, секции, подсекции
+\renewcommand*{\chapterheadstart}{} % Переопределяем команду, задающую отступ над заголовком, чтобы отступа не было
+\renewcommand*{\printchaptername}{} % Переопределяем команду, печатающую слово "Глава", чтобы оно не печалось
+\renewcommand*{\printchapternum}{} % То же самое для номера главы
+\renewcommand*{\chapnumfont}{\normalfont\bfseries} % Меняем стиль шрифта для номера главы: нормальный размер, полужирный
+\renewcommand*{\afterchapternum}{\hspace{1em}} % Меняем разделитель между номером главы и названием
+\renewcommand*{\printchaptertitle}{\normalfont\bfseries\centering\MakeUppercase} % Меняем стиль написания для заголовка главы: нормальный размер, полужирный, центрированный, заглавными буквами
+\setbeforesecskip{20pt} % Задаем отступ перед заголовком секции
+\setaftersecskip{20pt} % Ставим такой же отступ после заголовка секции
+\setsecheadstyle{\raggedright\normalfont\bfseries} % Меняем стиль написания для заголовка секции: выравнивание по правому краю без переносов, нормальный размер, полужирный
+\setbeforesubsecskip{20pt} % Задаем отступ перед заголовком подсекции
+\setaftersubsecskip{20pt} % Ставим такой же отступ после заголовка подсекции
+\setsubsecheadstyle{\raggedright\normalfont\bfseries}  % Меняем стиль написания для заголовка подсекции: выравнивание по правому краю без переносов, нормальный размер, полужирный
+
+%%% Задаем параметры оглавления %%%
+
+\addto\captionsrussian{\renewcommand\contentsname{Содержание}} % Меняем слово "Оглавление" на "Содержание"
+\setrmarg{2.55em plus1fil} % Запрещаем переносы слов в оглавлении
+
+%%% Выравнивание и переносы %%%
+
+\tolerance 1414
+\hbadness 1414
+\emergencystretch 1.5em
+\hfuzz 0.3pt
+\vfuzz \hfuzz
+\clubpenalty=10000
+\widowpenalty=10000
+\brokenpenalty=4991
+
+%%% Объясняем компилятору, какие буквы русского алфавита можно использовать в перечислениях %%%
+
+\makeatletter
+    \def\russian@Alph#1{\ifcase#1\or
+       А\or Б\or В\or Г\or Д\or Е\or Ж\or
+       И\or К\or Л\or М\or Н\or
+       П\or Р\or С\or Т\or У\or Ф\or Х\or
+       Ц\or Ш\or Щ\or Э\or Ю\or Я\else\xpg@ill@value{#1}{russian@Alph}\fi}
+    \def\russian@alph#1{\ifcase#1\or
+       а\or б\or в\or г\or д\or е\or ж\or
+       и\or к\or л\or м\or н\or
+       п\or р\or с\or т\or у\or ф\or х\or
+       ц\or ш\or щ\or э\or ю\or я\else\xpg@ill@value{#1}{russian@alph}\fi}
+\makeatother
+
+%%% Задаем параметры оформления рисунков и таблиц %%%
+
+\usepackage{graphicx, caption, subcaption}
+\graphicspath{{images/}}
+\captionsetup[figure]{font=small, width=\textwidth, name=Рисунок, justification=centering}
+\captionsetup[subfigure]{font=small}
+\captionsetup[table]{singlelinecheck=false,font=small,width=\textwidth,justification=justified}
+\captiondelim{ --- }
+\setkeys{Gin}{width=\textwidth}
+\renewcommand{\thesubfigure}{\asbuk{subfigure}}
+\usepackage[section]{placeins}
+\usepackage{float}
+
+%%% Задаем параметры ссылок и гиперссылок %%% 
+
+\usepackage{hyperref}
+\hypersetup{
+    colorlinks=true,
+    linktoc=all,
+    linktocpage=true,
+    linkcolor=red,
+    citecolor=red
+}
+
+%%% Настраиваем отображение списков %%%
+
+\usepackage{enumitem}
+\renewcommand*{\labelitemi}{\normalfont{--}}
+\makeatletter
+    \AddEnumerateCounter{\asbuk}{\russian@alph}
+\makeatother
+\renewcommand{\labelenumii}{\asbuk{enumii})}
+\renewcommand{\labelenumiii}{\arabic{enumiii})}
+\setlist{noitemsep, leftmargin=*}
+\setlist[1]{labelindent=\parindent}
+\setlist[2]{leftmargin=\parindent}
+\setlist[3]{leftmargin=\parindent}
+
+%%% Счетчики для нумерации объектов %%%
+
+\counterwithout{figure}{chapter}
+\counterwithout{equation}{chapter}
+\counterwithout{table}{chapter}
+
+\begin{document}
+
+\input{homework1_title}
+
+\newpage
+\setcounter{page}{2}
+\OnehalfSpacing*
+
+\input{homework1_main}
+
+\end{document}
+
