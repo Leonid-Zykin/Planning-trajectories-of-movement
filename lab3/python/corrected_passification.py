@@ -8,11 +8,17 @@ class CorrectedPassificationControl3D:
     Исправленный алгоритм стабилизации методом пассификации для 3D движения
     """
     
-    def __init__(self, m=1.0, k=2.0, c=1.0, gamma=2.0):
+    def __init__(self, m=1.0, k=2.0, c=1.0, gamma=2.0, k_tau=4.0, d_tau=1.0,
+                 adaptive_gain=0.4, max_tangential_speed=2.5, u_limit=40.0):
         self.m = m
         self.k = k
         self.c = c
         self.gamma = gamma
+        self.k_tau = k_tau
+        self.d_tau = d_tau
+        self.adaptive_gain = adaptive_gain
+        self.max_tangential_speed = max_tangential_speed
+        self.u_limit = u_limit
         
     def trajectory_phi1(self, x, y, z):
         """Сфера: x² + y² + z² = 4"""
@@ -80,13 +86,18 @@ class CorrectedPassificationControl3D:
         # Закон пассификации
         u_normal1 = -self.gamma * y1 * n1 - self.k * dy1_dt * n1
         u_normal2 = -self.gamma * y2 * n2 - self.k * dy2_dt * n2
-        u_tangential = s_star * tau
+        v_tau = np.dot([vx, vy, vz], tau)
+        dominant_error = max(abs(y1), abs(y2))
+        s_effective = s_star * np.exp(-self.adaptive_gain * dominant_error)
+        s_effective = np.clip(s_effective, -self.max_tangential_speed, self.max_tangential_speed)
+        tangential_error = s_effective - v_tau
+        u_tangential = (self.k_tau * tangential_error - self.d_tau * v_tau) * tau
         
         # Общее управление
         u = u_normal1 + u_normal2 + u_tangential
         
         # Ограничение управления
-        u = np.clip(u, -15, 15)
+        u = np.clip(u, -self.u_limit, self.u_limit)
         
         return u
     

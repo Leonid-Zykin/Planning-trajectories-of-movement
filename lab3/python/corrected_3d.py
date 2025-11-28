@@ -8,10 +8,16 @@ class CorrectedCoordinatedControl3D:
     Исправленный алгоритм стабилизации траекторий для 3D движения
     """
     
-    def __init__(self, m=1.0, k=3.0, c=1.5):
+    def __init__(self, m=1.0, k=6.0, c=2.0, k_tau=4.0, d_tau=1.0,
+                 adaptive_gain=0.4, max_tangential_speed=2.5, u_limit=40.0):
         self.m = m
         self.k = k
         self.c = c
+        self.k_tau = k_tau
+        self.d_tau = d_tau
+        self.adaptive_gain = adaptive_gain
+        self.max_tangential_speed = max_tangential_speed
+        self.u_limit = u_limit
         
     def trajectory_phi1(self, x, y, z):
         """Сфера: x² + y² + z² = 4"""
@@ -75,13 +81,18 @@ class CorrectedCoordinatedControl3D:
         # Закон согласованного управления
         u_normal1 = -self.k * error1 * n1 - self.c * v_normal1 * n1
         u_normal2 = -self.k * error2 * n2 - self.c * v_normal2 * n2
-        u_tangential = s_star * tau
+        v_tau = np.dot([vx, vy, vz], tau)
+        dominant_error = max(abs(error1), abs(error2))
+        s_effective = s_star * np.exp(-self.adaptive_gain * dominant_error)
+        s_effective = np.clip(s_effective, -self.max_tangential_speed, self.max_tangential_speed)
+        tangential_error = s_effective - v_tau
+        u_tangential = (self.k_tau * tangential_error - self.d_tau * v_tau) * tau
         
         # Общее управление
         u = u_normal1 + u_normal2 + u_tangential
         
         # Ограничение управления
-        u = np.clip(u, -15, 15)
+        u = np.clip(u, -self.u_limit, self.u_limit)
         
         return u
     
