@@ -126,12 +126,29 @@ class CorrectedCoordinatedControl2D:
             lambda x, y: y - 0.5*x**2 + 2
         ]
 
+    def project_gamma(self, segment, position):
+        x, y = position
+        if isinstance(segment, CircleSegment):
+            rel = np.array([x, y]) - segment.center
+            angle = np.arctan2(rel[1], rel[0]) % (2 * np.pi)
+            return angle / (2 * np.pi)
+        if isinstance(segment, EllipseSegment):
+            rel_x = (x - segment.center[0]) / segment.a
+            rel_y = (y - segment.center[1]) / segment.b
+            angle = np.arctan2(rel_y, rel_x) % (2 * np.pi)
+            return angle / (2 * np.pi)
+        if isinstance(segment, ParabolaSegment):
+            gamma = (x - segment.x0) / (segment.x1 - segment.x0)
+            return np.clip(gamma, 0.0, 1.0)
+        return 0.0
+
     def _reference_kinematics(self, segment, gamma, s_star, e_normal):
-        tau = segment.tangent(gamma)
-        n = segment.normal(gamma)
+        gamma_clamped = np.clip(gamma, 0.0, 1.0)
+        tau = segment.tangent(gamma_clamped)
+        n = segment.normal(gamma_clamped)
         s_effective = s_star * np.exp(-self.adaptive_gain * abs(e_normal))
         s_effective = np.clip(s_effective, self.min_tangential_speed, self.max_tangential_speed)
-        ds_dgamma = max(segment.ds_dgamma(gamma), 1e-6)
+        ds_dgamma = max(segment.ds_dgamma(gamma_clamped), 1e-6)
         gamma_dot = s_effective / ds_dgamma
         return tau, n, s_effective, gamma_dot
 
@@ -139,10 +156,15 @@ class CorrectedCoordinatedControl2D:
         x, y, vx, vy, gamma = state
         pos = np.array([x, y])
         vel = np.array([vx, vy])
-        ref = segment.position(gamma)
+        gamma_ref = self.project_gamma(segment, pos)
+        ref = segment.position(gamma_ref)
         error_vec = pos - ref
 
-        tau, n, s_effective, gamma_dot = self._reference_kinematics(segment, gamma, s_star, np.dot(error_vec, segment.normal(gamma)))
+        tau, n, s_effective, gamma_dot_ref = self._reference_kinematics(
+            segment, gamma_ref, s_star, np.dot(error_vec, segment.normal(gamma_ref))
+        )
+        gamma_error = gamma_ref - gamma
+        gamma_dot = gamma_dot_ref + 5.0 * gamma_error
         e_n = np.dot(error_vec, n)
         v_n = np.dot(vel, n)
         v_tau = np.dot(vel, tau)
@@ -259,6 +281,7 @@ def plot_corrected_trajectories(controller, time_hist, sol, phases, s_star):
     ax3.set_title('Ошибки по активным участкам')
     ax3.set_xlabel('Время')
     ax3.set_ylabel('φ')
+    ax3.set_ylim(-0.2, 0.2)
     ax3.grid(True)
     ax3.legend()
 

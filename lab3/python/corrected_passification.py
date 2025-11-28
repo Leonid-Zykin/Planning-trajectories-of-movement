@@ -5,11 +5,12 @@ import os
 
 class CorrectedPassificationControl3D:
     """
-    Исправленный алгоритм стабилизации методом пассификации для 3D движения
+    Алгоритм стабилизации методом пассификации с проекцией на пересечение сферы и цилиндра.
     """
     
-    def __init__(self, m=1.0, k=2.0, c=1.0, gamma=2.0, k_tau=4.0, d_tau=1.0,
-                 adaptive_gain=0.4, max_tangential_speed=2.5, u_limit=40.0):
+    def __init__(self, m=1.0, k=25.0, c=1.0, gamma=80.0, k_tau=6.0, d_tau=2.0,
+                 adaptive_gain=0.6, max_tangential_speed=2.5, u_limit=80.0,
+                 plane_sign=1.0):
         self.m = m
         self.k = k
         self.c = c
@@ -19,6 +20,7 @@ class CorrectedPassificationControl3D:
         self.adaptive_gain = adaptive_gain
         self.max_tangential_speed = max_tangential_speed
         self.u_limit = u_limit
+        self.set_plane_sign(plane_sign)
         
     def trajectory_phi1(self, x, y, z):
         """Сфера: x² + y² + z² = 4"""
@@ -34,71 +36,42 @@ class CorrectedPassificationControl3D:
     def grad_phi2(self, x, y, z):
         return np.array([2*x, 2*y, 0])
     
+    def set_plane_sign(self, sign):
+        self.plane_sign = 1.0 if sign >= 0 else -1.0
+        self.z_plane = self.plane_sign * np.sqrt(3)
+    
     def corrected_passification_control_law(self, state, s_star):
         """
-        Исправленный закон пассификации для 3D
+        Закон пассификации с проекцией на эталонную кривую.
         """
         x, y, z, vx, vy, vz = state
+        theta_ref = np.arctan2(y, x)
+        pos_ref = np.array([np.cos(theta_ref), np.sin(theta_ref), self.z_plane])
+        pos = np.array([x, y, z])
+        vel = np.array([vx, vy, vz])
+        error_vec = pos - pos_ref
         
-        # Вычисление градиентов
-        grad_phi1 = self.grad_phi1(x, y, z)
-        grad_phi2 = self.grad_phi2(x, y, z)
+        radial_dir = np.array([np.cos(theta_ref), np.sin(theta_ref), 0.0])
+        vertical_dir = np.array([0.0, 0.0, self.plane_sign])
         
-        # Нормализация градиентов
-        grad1_norm = np.linalg.norm(grad_phi1)
-        grad2_norm = np.linalg.norm(grad_phi2)
+        e_radial = np.dot(error_vec, radial_dir)
+        e_vertical = np.dot(error_vec, vertical_dir)
+        v_radial = np.dot(vel, radial_dir)
+        v_vertical = np.dot(vel, vertical_dir)
         
-        if grad1_norm > 1e-6:
-            n1 = grad_phi1 / grad1_norm
-        else:
-            n1 = np.array([1.0, 0.0, 0.0])
-            
-        if grad2_norm > 1e-6:
-            n2 = grad_phi2 / grad2_norm
-        else:
-            n2 = np.array([0.0, 1.0, 0.0])
+        u_radial = -self.gamma * e_radial * radial_dir - self.k * v_radial * radial_dir
+        u_vertical = -self.gamma * e_vertical * vertical_dir - self.k * v_vertical * vertical_dir
         
-        # Касательный вектор
-        tau = np.cross(n1, n2)
-        tau_norm = np.linalg.norm(tau)
-        
-        if tau_norm > 1e-6:
-            tau = tau / tau_norm
-        else:
-            tau = np.array([0.0, 0.0, 1.0])
-        
-        # Выходные переменные (ошибки стабилизации)
-        y1 = self.trajectory_phi1(x, y, z)
-        y2 = self.trajectory_phi2(x, y, z)
-        
-        # Ограничение выходных переменных
-        y1 = np.clip(y1, -3, 3)
-        y2 = np.clip(y2, -3, 3)
-        
-        # Производные выходных переменных
-        dy1_dt = 2*x*vx + 2*y*vy + 2*z*vz
-        dy2_dt = 2*x*vx + 2*y*vy
-        
-        # Ограничение производных
-        dy1_dt = np.clip(dy1_dt, -10, 10)
-        dy2_dt = np.clip(dy2_dt, -10, 10)
-        
-        # Закон пассификации
-        u_normal1 = -self.gamma * y1 * n1 - self.k * dy1_dt * n1
-        u_normal2 = -self.gamma * y2 * n2 - self.k * dy2_dt * n2
-        v_tau = np.dot([vx, vy, vz], tau)
-        dominant_error = max(abs(y1), abs(y2))
+        tau = np.array([-np.sin(theta_ref), np.cos(theta_ref), 0.0])
+        v_tau = np.dot(vel, tau)
+        dominant_error = max(abs(e_radial), abs(e_vertical))
         s_effective = s_star * np.exp(-self.adaptive_gain * dominant_error)
         s_effective = np.clip(s_effective, -self.max_tangential_speed, self.max_tangential_speed)
         tangential_error = s_effective - v_tau
         u_tangential = (self.k_tau * tangential_error - self.d_tau * v_tau) * tau
         
-        # Общее управление
-        u = u_normal1 + u_normal2 + u_tangential
-        
-        # Ограничение управления
+        u = u_radial + u_vertical + u_tangential
         u = np.clip(u, -self.u_limit, self.u_limit)
-        
         return u
     
     def dynamics(self, state, t, s_star):
@@ -224,11 +197,11 @@ def plot_corrected_passification(controller, t, sol, s_star, title="Исправ
     return fig
 
 def main():
-    # Исправленные параметры
-    controller = CorrectedPassificationControl3D(m=1.0, k=2.0, c=1.0, gamma=2.0)
+    controller = CorrectedPassificationControl3D()
     
     # Начальные условия на пересечении поверхностей
     x0 = np.array([1.0, 0.0, np.sqrt(3), 0.0, 0.0, 0.0])
+    controller.set_plane_sign(np.sign(x0[2]))
     t = np.linspace(0, 15, 1500)
     
     speeds = [1.0, 3.0, 5.0]
