@@ -100,7 +100,7 @@ class CorrectedCoordinatedControl2D:
     """
     Улучшенный алгоритм стабилизации 2D-траекторий с параметризацией каждого участка.
     """
-
+    
     def __init__(self, m=1.0, k=180.0, c=60.0, k_tau=15.0, d_tau=6.0,
                  adaptive_gain=0.2, u_limit=250.0, max_tangential_speed=5.0,
                  min_tangential_speed=0.2):
@@ -173,9 +173,9 @@ class CorrectedCoordinatedControl2D:
         u_tangential = self.k_tau * (s_effective - v_tau) * tau - self.d_tau * v_tau * tau
         u = u_normal + u_tangential
         u = np.clip(u, -self.u_limit, self.u_limit)
-
+        
         return u, gamma_dot
-
+    
     def dynamics(self, state, t, segment, s_star):
         u, gamma_dot = self.control_law(state, segment, s_star)
         x_dot = state[2]
@@ -183,7 +183,7 @@ class CorrectedCoordinatedControl2D:
         vx_dot = u[0] / self.m
         vy_dot = u[1] / self.m
         return [x_dot, y_dot, vx_dot, vy_dot, gamma_dot]
-
+    
     def simulate_segment(self, initial_state, segment, s_star, dt, max_time, phase_id):
         t_local = np.arange(0.0, max_time, dt)
 
@@ -236,12 +236,12 @@ class CorrectedCoordinatedControl2D:
 
 def plot_corrected_trajectories(controller, time_hist, sol, phases, s_star):
     fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(15, 12))
-
+    
     x = sol[:, 0].copy()
     y = sol[:, 1].copy()
     vx = sol[:, 2]
     vy = sol[:, 3]
-
+    
     theta = np.linspace(0, 2*np.pi, 400)
     phase_changes = np.where(np.diff(phases) != 0)[0]
     for idx in phase_changes:
@@ -294,7 +294,7 @@ def plot_corrected_trajectories(controller, time_hist, sol, phases, s_star):
     ax4.set_ylabel('У')
     ax4.grid(True)
     ax4.legend()
-
+    
     plt.tight_layout()
     return fig, phi_errors
 
@@ -303,7 +303,7 @@ def main():
     x0 = np.array([2.0, 0.0, 0.0, 0.0])
     t_grid = np.linspace(0, 40, 4000)
     speeds = [1.0, 3.0, 5.0]
-
+    
     for s_star in speeds:
         print(f"Симуляция параметризированного 2D алгоритма для s* = {s_star}")
         time_hist, sol, phases = controller.simulate_trajectory(x0, t_grid, s_star)

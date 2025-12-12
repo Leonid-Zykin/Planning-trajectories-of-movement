@@ -1,0 +1,302 @@
+% !TEX program = xelatex
+\documentclass[14pt,aspectratio=169]{beamer}
+
+\usepackage[english, russian]{babel}
+\usepackage{fontspec}
+\setmainfont{Times New Roman}
+
+\usetheme{Madrid}
+\usecolortheme{default}
+
+\title{Стабилизация неполноприводной системы Segway \\ методом управления по выходу}
+\author{Зыкин Л. В. \\ Группа R3435}
+\institute{Университет ИТМО \\ Факультет систем управления и робототехники}
+\date{2025}
+
+\begin{document}
+
+\frame{\titlepage}
+
+\begin{frame}
+\frametitle{Содержание}
+\tableofcontents
+\end{frame}
+
+\section{Введение}
+
+\begin{frame}
+\frametitle{Актуальность темы}
+\begin{itemize}
+    \item Неполноприводные системы --- важный класс робототехнических систем
+    \item Число управляющих воздействий меньше числа степеней свободы
+    \item Многие реальные роботы обладают этим свойством
+    \item Segway --- классический пример неполноприводной системы
+\end{itemize}
+\end{frame}
+
+\begin{frame}
+\frametitle{Цель работы}
+\begin{block}{Основная цель}
+Синтез системы управления методом управления по выходу для стабилизации Segway
+\end{block}
+
+\begin{block}{Задачи}
+\begin{enumerate}
+    \item Разработка математической модели Segway
+    \item Моделирование свободного движения
+    \item Синтез контроллера по выходу
+    \item Моделирование управляемого движения
+    \item Анализ качества системы управления
+\end{enumerate}
+\end{block}
+\end{frame}
+
+\section{Описание системы Segway}
+
+\begin{frame}
+\frametitle{Физическая модель}
+\begin{columns}
+\column{0.5\textwidth}
+\begin{itemize}
+    \item Двухколесное транспортное средство
+    \item Платформа с маятником
+    \item Два независимых колеса
+    \item Одно управляющее воздействие
+\end{itemize}
+
+\column{0.5\textwidth}
+\begin{block}{Параметры}
+\begin{itemize}
+    \item $M = 10$ кг
+    \item $m = 2$ кг
+    \item $L = 0.5$ м
+    \item $R = 0.1$ м
+\end{itemize}
+\end{block}
+\end{columns}
+\end{frame}
+
+\begin{frame}
+\frametitle{Математическая модель}
+\begin{block}{Вектор состояния}
+\[
+\mathbf{x} = [\theta, \dot{\theta}, \phi, \dot{\phi}, x, \dot{x}]^T
+\]
+\end{block}
+
+\begin{block}{Уравнения движения}
+\[
+\mathbf{M}(\theta) \begin{bmatrix} \ddot{\theta} \\ \ddot{\phi} \end{bmatrix} + \mathbf{C}(\theta, \dot{\phi}) + \mathbf{G}(\theta) = \begin{bmatrix} u \\ -u \end{bmatrix}
+\]
+\end{block}
+
+\begin{block}{Свойство неполноприводности}
+Число степеней свободы: $n = 2$ \\
+Число управлений: $m = 1$ \\
+Условие: $m < n$
+\end{block}
+\end{frame}
+
+\section{Задача управления}
+
+\begin{frame}
+\frametitle{Постановка задачи стабилизации}
+\begin{block}{Цель управления}
+\[
+\lim_{t \to \infty} \theta(t) = 0, \quad \lim_{t \to \infty} \dot{\theta}(t) = 0
+\]
+\end{block}
+
+\begin{block}{Требования}
+\begin{itemize}
+    \item Ограниченность управления: $|u(t)| \leq u_{\max}$
+    \item Минимизация времени установления
+    \item Минимизация перерегулирования
+    \item Обеспечение устойчивости
+\end{itemize}
+\end{block}
+\end{frame}
+
+\begin{frame}
+\frametitle{Метод управления по выходу}
+\begin{block}{Выходные переменные}
+\[
+\mathbf{y} = [\theta, \dot{\theta}]^T
+\]
+Измеряются с помощью IMU (гироскоп + акселерометр)
+\end{block}
+
+\begin{block}{Закон управления}
+\[
+u = -K_p \theta - K_d \dot{\theta}
+\]
+ПД-регулятор по выходу
+\end{block}
+
+\begin{block}{Преимущества}
+\begin{itemize}
+    \item Использует только измеряемые переменные
+    \item Простота реализации
+    \item Низкая стоимость датчиков
+\end{itemize}
+\end{block}
+\end{frame}
+
+\section{Моделирование свободного движения}
+
+\begin{frame}
+\frametitle{Результаты моделирования}
+\begin{center}
+\includegraphics[width=0.7\textwidth]{images/free_motion.png}
+\end{center}
+
+\begin{block}{Выводы}
+\begin{itemize}
+    \item Система неустойчива в открытом контуре
+    \item Малое отклонение приводит к падению
+    \item Необходимо управление для стабилизации
+\end{itemize}
+\end{block}
+\end{frame}
+
+\begin{frame}
+\frametitle{Фазовый портрет свободного движения}
+\begin{center}
+\includegraphics[width=0.6\textwidth]{images/free_motion_phase.png}
+\end{center}
+
+Траектория расходится от начала координат --- подтверждение неустойчивости
+\end{frame}
+
+\section{Синтез системы управления}
+
+\begin{frame}
+\frametitle{Построение замкнутой системы}
+\begin{block}{Замкнутая система}
+\[
+\mathbf{M}(\theta) \begin{bmatrix} \ddot{\theta} \\ \ddot{\phi} \end{bmatrix} + \mathbf{C} + \mathbf{G} = \begin{bmatrix} -K_p \theta - K_d \dot{\theta} \\ K_p \theta + K_d \dot{\theta} \end{bmatrix}
+\]
+\end{block}
+
+\begin{block}{Параметры контроллера}
+\begin{itemize}
+    \item $K_p = 50.0$ --- пропорциональный коэффициент
+    \item $K_d = 10.0$ --- дифференциальный коэффициент
+\end{itemize}
+\end{block}
+
+\begin{block}{Критерии выбора}
+\begin{itemize}
+    \item Обеспечение устойчивости
+    \item Минимизация времени установления
+    \item Ограничение управления
+\end{itemize}
+\end{block}
+\end{frame}
+
+\section{Моделирование управляемого движения}
+
+\begin{frame}
+\frametitle{Результаты моделирования}
+\begin{center}
+\includegraphics[width=0.7\textwidth]{images/controlled_motion.png}
+\end{center}
+
+\begin{block}{Характеристики}
+\begin{itemize}
+    \item Установившаяся ошибка: $< 0.000001°$
+    \item Время установления: $0.283$ с
+    \item Максимальный момент: $8.73$ Н·м
+\end{itemize}
+\end{block}
+\end{frame}
+
+\begin{frame}
+\frametitle{Сравнение свободного и управляемого движения}
+\begin{center}
+\includegraphics[width=0.7\textwidth]{images/comparison_free_vs_controlled.png}
+\end{center}
+
+Контроллер успешно стабилизирует систему
+\end{frame}
+
+\section{Анализ качества системы}
+
+\begin{frame}
+\frametitle{Оценка качества}
+\begin{columns}
+\column{0.5\textwidth}
+\begin{block}{Устойчивость}
+\begin{itemize}
+    \item Асимптотическая устойчивость
+    \item Экспоненциальная сходимость
+    \item Все траектории сходятся к нулю
+\end{itemize}
+\end{block}
+
+\column{0.5\textwidth}
+\begin{block}{Точность}
+\begin{itemize}
+    \item Установившаяся ошибка: $< 0.000001°$
+    \item Практически идеальная стабилизация
+\end{itemize}
+\end{block}
+\end{columns}
+
+\begin{block}{Быстродействие}
+Время установления до $1°$: $0.283$ с
+\end{block}
+
+\begin{block}{Энергетические затраты}
+Средняя мощность: $0.16$ Вт (низкое потребление)
+\end{block}
+\end{frame}
+
+\section{Заключение}
+
+\begin{frame}
+\frametitle{Основные результаты}
+\begin{enumerate}
+    \item Разработана математическая модель Segway как неполноприводной системы
+    \item Подтверждена неустойчивость системы в открытом контуре
+    \item Синтезирован контроллер по выходу: $u = -K_p \theta - K_d \dot{\theta}$
+    \item Обеспечена стабилизация с высокой точностью
+    \item Проведен анализ качества системы
+\end{enumerate}
+\end{frame}
+
+\begin{frame}
+\frametitle{Выводы}
+\begin{block}{Эффективность метода}
+Метод управления по выходу успешно решает задачу стабилизации неполноприводной системы Segway
+\end{block}
+
+\begin{block}{Практическая применимость}
+\begin{itemize}
+    \item Использует только измеряемые переменные
+    \item Простота реализации
+    \item Высокое качество стабилизации
+    \item Низкое энергопотребление
+\end{itemize}
+\end{block}
+\end{frame}
+
+\begin{frame}
+\frametitle{Дальнейшие направления}
+\begin{itemize}
+    \item Адаптивное управление для компенсации неопределенности
+    \item Учет ограничений при синтезе
+    \item Оптимизация параметров контроллера
+    \item Расширение модели (трение, люфты, нелинейности)
+\end{itemize}
+\end{frame}
+
+\begin{frame}
+\frametitle{Спасибо за внимание!}
+\begin{center}
+\Large Вопросы?
+\end{center}
+\end{frame}
+
+\end{document}
+

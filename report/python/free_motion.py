@@ -1,0 +1,124 @@
+"""
+Симуляция свободного движения Segway
+"""
+
+import numpy as np
+import matplotlib.pyplot as plt
+from segway_model import SegwayModel
+import os
+
+def main():
+    # Создание модели
+    segway = SegwayModel(M=10.0, m=2.0, L=0.5, R=0.1, I_p=1.0, I_w=0.1, g=9.81)
+    
+    # Начальные условия: небольшое отклонение от вертикали
+    theta0 = np.deg2rad(5.0)  # 5 градусов от вертикали
+    theta_dot0 = 0.0
+    phi0 = 0.0
+    phi_dot0 = 0.0
+    x0 = 0.0
+    x_dot0 = 0.0
+    
+    initial_state = [theta0, theta_dot0, phi0, phi_dot0, x0, x_dot0]
+    
+    # Временной интервал
+    t_span = np.linspace(0, 5.0, 5000)
+    
+    # Симуляция свободного движения
+    print("Симуляция свободного движения Segway...")
+    sol = segway.simulate_free(initial_state, t_span)
+    
+    theta = sol[:, 0]
+    theta_dot = sol[:, 1]
+    phi = sol[:, 2]
+    phi_dot = sol[:, 3]
+    x = sol[:, 4]
+    x_dot = sol[:, 5]
+    
+    # Построение графиков
+    fig, axes = plt.subplots(3, 2, figsize=(14, 10))
+    
+    # Угол наклона платформы
+    axes[0, 0].plot(t_span, np.rad2deg(theta), 'b-', linewidth=2)
+    axes[0, 0].set_xlabel('Время, с')
+    axes[0, 0].set_ylabel('Угол наклона θ, град')
+    axes[0, 0].set_title('Угол наклона платформы (свободное движение)')
+    axes[0, 0].grid(True)
+    axes[0, 0].axhline(y=0, color='r', linestyle='--', alpha=0.5, label='Вертикальное положение')
+    axes[0, 0].legend()
+    
+    # Угловая скорость наклона
+    axes[0, 1].plot(t_span, np.rad2deg(theta_dot), 'b-', linewidth=2)
+    axes[0, 1].set_xlabel('Время, с')
+    axes[0, 1].set_ylabel('Угловая скорость θ̇, град/с')
+    axes[0, 1].set_title('Угловая скорость наклона платформы')
+    axes[0, 1].grid(True)
+    
+    # Угол поворота колес
+    axes[1, 0].plot(t_span, np.rad2deg(phi), 'g-', linewidth=2)
+    axes[1, 0].set_xlabel('Время, с')
+    axes[1, 0].set_ylabel('Угол поворота φ, град')
+    axes[1, 0].set_title('Угол поворота колес')
+    axes[1, 0].grid(True)
+    
+    # Угловая скорость колес
+    axes[1, 1].plot(t_span, np.rad2deg(phi_dot), 'g-', linewidth=2)
+    axes[1, 1].set_xlabel('Время, с')
+    axes[1, 1].set_ylabel('Угловая скорость φ̇, град/с')
+    axes[1, 1].set_title('Угловая скорость колес')
+    axes[1, 1].grid(True)
+    
+    # Горизонтальное положение
+    axes[2, 0].plot(t_span, x, 'r-', linewidth=2)
+    axes[2, 0].set_xlabel('Время, с')
+    axes[2, 0].set_ylabel('Положение x, м')
+    axes[2, 0].set_title('Горизонтальное положение')
+    axes[2, 0].grid(True)
+    
+    # Горизонтальная скорость
+    axes[2, 1].plot(t_span, x_dot, 'r-', linewidth=2)
+    axes[2, 1].set_xlabel('Время, с')
+    axes[2, 1].set_ylabel('Скорость ẋ, м/с')
+    axes[2, 1].set_title('Горизонтальная скорость')
+    axes[2, 1].grid(True)
+    
+    plt.tight_layout()
+    
+    # Сохранение графика
+    output_dir = "/home/leonidas/projects/itmo/Planning-trajectories-of-movement/report/images"
+    os.makedirs(output_dir, exist_ok=True)
+    plt.savefig(os.path.join(output_dir, "free_motion.png"), dpi=300, bbox_inches='tight')
+    print(f"График сохранен: {output_dir}/free_motion.png")
+    plt.close()
+    
+    # Фазовый портрет (theta vs theta_dot)
+    fig, ax = plt.subplots(figsize=(10, 6))
+    ax.plot(np.rad2deg(theta), np.rad2deg(theta_dot), 'b-', linewidth=1.5, alpha=0.7)
+    ax.scatter(np.rad2deg(theta[0]), np.rad2deg(theta_dot[0]), color='green', s=100, 
+               marker='o', label='Начало', zorder=5)
+    ax.scatter(np.rad2deg(theta[-1]), np.rad2deg(theta_dot[-1]), color='red', s=100, 
+               marker='x', label='Конец', zorder=5)
+    ax.set_xlabel('Угол наклона θ, град')
+    ax.set_ylabel('Угловая скорость θ̇, град/с')
+    ax.set_title('Фазовый портрет: угол наклона платформы (свободное движение)')
+    ax.grid(True, alpha=0.3)
+    ax.legend()
+    plt.savefig(os.path.join(output_dir, "free_motion_phase.png"), dpi=300, bbox_inches='tight')
+    print(f"Фазовый портрет сохранен: {output_dir}/free_motion_phase.png")
+    plt.close()
+    
+    # Анализ результатов
+    print("\n=== Анализ свободного движения ===")
+    print(f"Максимальное отклонение от вертикали: {np.max(np.abs(np.rad2deg(theta))):.2f} град")
+    print(f"Время до падения (|theta| > 45°): ", end="")
+    fall_idx = np.where(np.abs(theta) > np.deg2rad(45))[0]
+    if len(fall_idx) > 0:
+        print(f"{t_span[fall_idx[0]]:.2f} с")
+    else:
+        print("не достигнуто за время симуляции")
+    print(f"Максимальная горизонтальная скорость: {np.max(np.abs(x_dot)):.3f} м/с")
+    print(f"Максимальное смещение по горизонтали: {np.max(np.abs(x)):.3f} м")
+
+if __name__ == "__main__":
+    main()
+
