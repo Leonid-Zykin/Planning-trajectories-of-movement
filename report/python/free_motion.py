@@ -93,19 +93,61 @@ def main():
     
     # Фазовый портрет (theta vs theta_dot)
     fig, ax = plt.subplots(figsize=(10, 6))
-    ax.plot(np.rad2deg(theta), np.rad2deg(theta_dot), 'b-', linewidth=1.5, alpha=0.7)
-    ax.scatter(np.rad2deg(theta[0]), np.rad2deg(theta_dot[0]), color='green', s=100, 
-               marker='o', label='Начало', zorder=5)
-    ax.scatter(np.rad2deg(theta[-1]), np.rad2deg(theta_dot[-1]), color='red', s=100, 
-               marker='x', label='Конец', zorder=5)
+    
+    # Используем цветовую кодировку по времени для лучшей визуализации
+    # и избегаем соединения начала и конца
+    theta_deg = np.rad2deg(theta)
+    theta_dot_deg = np.rad2deg(theta_dot)
+    
+    # Рисуем траекторию с цветовой кодировкой по времени
+    scatter = ax.scatter(theta_deg, theta_dot_deg, c=t_span, cmap='viridis', 
+                        s=2, alpha=0.6, zorder=1)
+    
+    # Рисуем основную линию траектории
+    ax.plot(theta_deg, theta_dot_deg, 'b-', linewidth=1.0, alpha=0.4, zorder=2)
+    
+    # Добавляем стрелки направления в нескольких точках
+    arrow_indices = np.linspace(0, len(theta)-1, 20, dtype=int)
+    for i in arrow_indices[1:-1]:  # Пропускаем первый и последний
+        dx = theta_deg[i+1] - theta_deg[i]
+        dy = theta_dot_deg[i+1] - theta_dot_deg[i]
+        if abs(dx) > 0.1 or abs(dy) > 0.1:  # Рисуем стрелку только если есть движение
+            ax.arrow(theta_deg[i], theta_dot_deg[i], dx*0.3, dy*0.3,
+                    head_width=0.5, head_length=0.3, fc='red', ec='red', 
+                    alpha=0.6, zorder=3, length_includes_head=True)
+    
+    # Начальная точка
+    ax.scatter(theta_deg[0], theta_dot_deg[0], color='green', s=150, 
+               marker='o', label='Начало', zorder=5, edgecolors='black', linewidths=2)
+    
+    # Конечная точка
+    ax.scatter(theta_deg[-1], theta_dot_deg[-1], color='red', s=150, 
+               marker='x', label='Конец', zorder=5, linewidths=3)
+    
+    # Добавляем цветовую шкалу времени
+    cbar = plt.colorbar(scatter, ax=ax)
+    cbar.set_label('Время, с', rotation=270, labelpad=15)
+    
     ax.set_xlabel('Угол наклона θ, град')
     ax.set_ylabel('Угловая скорость θ̇, град/с')
-    ax.set_title('Фазовый портрет: угол наклона платформы (свободное движение)')
+    ax.set_title('Фазовый портрет: угол наклона платформы (свободное движение)\n' +
+                 'Цвет показывает время, стрелки - направление движения')
     ax.grid(True, alpha=0.3)
-    ax.legend()
+    ax.axhline(y=0, color='k', linestyle='--', alpha=0.3, linewidth=1)
+    ax.axvline(x=0, color='k', linestyle='--', alpha=0.3, linewidth=1)
+    ax.legend(loc='best')
+    
     plt.savefig(os.path.join(output_dir, "free_motion_phase.png"), dpi=300, bbox_inches='tight')
     print(f"Фазовый портрет сохранен: {output_dir}/free_motion_phase.png")
     plt.close()
+    
+    # Дополнительная диагностика
+    print(f"\n=== Диагностика фазового портрета ===")
+    print(f"Начальная точка: θ={theta_deg[0]:.2f}°, θ̇={theta_dot_deg[0]:.2f}°/с")
+    print(f"Конечная точка: θ={theta_deg[-1]:.2f}°, θ̇={theta_dot_deg[-1]:.2f}°/с")
+    print(f"Расстояние от начала координат в начале: {np.sqrt(theta_deg[0]**2 + theta_dot_deg[0]**2):.2f}")
+    print(f"Расстояние от начала координат в конце: {np.sqrt(theta_deg[-1]**2 + theta_dot_deg[-1]**2):.2f}")
+    print(f"Максимальное расстояние от начала координат: {np.max(np.sqrt(theta_deg**2 + theta_dot_deg**2)):.2f}")
     
     # Анализ результатов
     print("\n=== Анализ свободного движения ===")

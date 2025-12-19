@@ -139,11 +139,30 @@ def main():
     
     # Ошибка стабилизации
     error = np.abs(theta)
-    axes[2, 1].semilogy(t_span, np.rad2deg(error), 'm-', linewidth=2)
+    error_deg = np.rad2deg(error)
+    
+    # Используем логарифмическую шкалу для лучшей визуализации экспоненциального убывания
+    # Добавляем небольшое значение для избежания проблем с логарифмом нуля
+    error_log = np.maximum(error_deg, 1e-8)  # Минимальное значение для логарифмической шкалы
+    
+    axes[2, 1].semilogy(t_span, error_log, 'm-', linewidth=2, label='Ошибка |θ|')
     axes[2, 1].set_xlabel('Время, с')
     axes[2, 1].set_ylabel('Ошибка |θ|, град (логарифмическая шкала)')
-    axes[2, 1].set_title('Ошибка стабилизации')
-    axes[2, 1].grid(True, which='both')
+    axes[2, 1].set_title('Ошибка стабилизации (логарифмическая шкала)')
+    axes[2, 1].grid(True, which='both', alpha=0.3)
+    
+    # Добавляем горизонтальные линии для ориентира
+    axes[2, 1].axhline(y=1.0, color='orange', linestyle=':', alpha=0.5, linewidth=1)
+    axes[2, 1].axhline(y=0.1, color='orange', linestyle=':', alpha=0.5, linewidth=1)
+    axes[2, 1].axhline(y=1e-6, color='g', linestyle='--', alpha=0.6, linewidth=1.5, label='Порог 1e-6°')
+    
+    # Улучшаем легенду
+    axes[2, 1].legend(loc='upper right', fontsize=9)
+    
+    # Устанавливаем разумные пределы для оси Y
+    y_min = max(1e-8, np.min(error_log[error_log > 0]))
+    y_max = max(1.0, np.max(error_log) * 1.1)
+    axes[2, 1].set_ylim([y_min, y_max])
     
     plt.tight_layout()
     

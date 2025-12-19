@@ -3,15 +3,51 @@
 
 \usepackage[english, russian]{babel}
 \usepackage{fontspec}
-\setmainfont{Times New Roman}
+\usepackage{unicode-math}
+
+% Настройка шрифтов с fallback
+\setmainfont{Times New Roman}[
+    Ligatures=TeX,
+    Numbers=OldStyle
+]
+\setsansfont{Liberation Sans}[
+    Ligatures=TeX
+]
+
+% Дополнительные пакеты для улучшения отображения
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{amsfonts}
+\usepackage{amssymb}
+\usepackage{mathtools}
 
 \usetheme{Madrid}
 \usecolortheme{default}
 
+% Улучшение отображения математики
+\usefonttheme{serif}
+
+% Настройки для русского языка (для новых версий babel)
+% Если используется старая версия, эти строки можно закомментировать
+
+% Улучшение отображения текста
+\setbeamertemplate{navigation symbols}{}
+\setbeamertemplate{footline}[frame number]
+
+% Настройка отступов и интервалов
+\setlength{\parskip}{0.5em}
+
+% Улучшение отображения списков
+\setbeamertemplate{itemize item}{\raisebox{0.12ex}{\scriptsize$\bullet$}}
+\setbeamertemplate{itemize subitem}{\raisebox{0.12ex}{\tiny$\bullet$}}
+
+% Улучшение отображения блоков
+\setbeamertemplate{blocks}[rounded][shadow=true]
+
 \title{Стабилизация неполноприводной системы Segway \\ методом управления по выходу}
 \author{Зыкин Л. В. \\ Группа R3435}
 \institute{Университет ИТМО \\ Факультет систем управления и робототехники}
-\date{2025}
+\date{}
 
 \begin{document}
 
@@ -24,15 +60,6 @@
 
 \section{Введение}
 
-\begin{frame}
-\frametitle{Актуальность темы}
-\begin{itemize}
-    \item Неполноприводные системы --- важный класс робототехнических систем
-    \item Число управляющих воздействий меньше числа степеней свободы
-    \item Многие реальные роботы обладают этим свойством
-    \item Segway --- классический пример неполноприводной системы
-\end{itemize}
-\end{frame}
 
 \begin{frame}
 \frametitle{Цель работы}
@@ -80,7 +107,7 @@
 \frametitle{Математическая модель}
 \begin{block}{Вектор состояния}
 \[
-\mathbf{x} = [\theta, \dot{\theta}, \phi, \dot{\phi}, x, \dot{x}]^T
+\mathbf{x} = \begin{bmatrix} \theta & \dot{\theta} & \phi & \dot{\phi} & x & \dot{x} \end{bmatrix}^T
 \]
 \end{block}
 
@@ -121,7 +148,7 @@
 \frametitle{Метод управления по выходу}
 \begin{block}{Выходные переменные}
 \[
-\mathbf{y} = [\theta, \dot{\theta}]^T
+\mathbf{y} = \begin{bmatrix} \theta & \dot{\theta} \end{bmatrix}^T
 \]
 Измеряются с помощью IMU (гироскоп + акселерометр)
 \end{block}
@@ -147,7 +174,7 @@ u = -K_p \theta - K_d \dot{\theta}
 \begin{frame}
 \frametitle{Результаты моделирования}
 \begin{center}
-\includegraphics[width=0.7\textwidth]{images/free_motion.png}
+\includegraphics[width=0.75\textwidth,height=0.6\textheight,keepaspectratio]{images/free_motion.png}
 \end{center}
 
 \begin{block}{Выводы}
@@ -159,14 +186,6 @@ u = -K_p \theta - K_d \dot{\theta}
 \end{block}
 \end{frame}
 
-\begin{frame}
-\frametitle{Фазовый портрет свободного движения}
-\begin{center}
-\includegraphics[width=0.6\textwidth]{images/free_motion_phase.png}
-\end{center}
-
-Траектория расходится от начала координат --- подтверждение неустойчивости
-\end{frame}
 
 \section{Синтез системы управления}
 
@@ -199,7 +218,7 @@ u = -K_p \theta - K_d \dot{\theta}
 \begin{frame}
 \frametitle{Результаты моделирования}
 \begin{center}
-\includegraphics[width=0.7\textwidth]{images/controlled_motion.png}
+\includegraphics[width=0.75\textwidth,height=0.6\textheight,keepaspectratio]{images/controlled_motion.png}
 \end{center}
 
 \begin{block}{Характеристики}
@@ -214,7 +233,7 @@ u = -K_p \theta - K_d \dot{\theta}
 \begin{frame}
 \frametitle{Сравнение свободного и управляемого движения}
 \begin{center}
-\includegraphics[width=0.7\textwidth]{images/comparison_free_vs_controlled.png}
+\includegraphics[width=0.75\textwidth,height=0.6\textheight,keepaspectratio]{images/comparison_free_vs_controlled.png}
 \end{center}
 
 Контроллер успешно стабилизирует систему
