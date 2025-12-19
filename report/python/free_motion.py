@@ -9,11 +9,14 @@ import os
 
 def main():
     # Создание модели
-    segway = SegwayModel(M=10.0, m=2.0, L=0.5, R=0.1, I_p=1.0, I_w=0.1, g=9.81)
+    # Параметры подобраны для более явного демонстрирования неустойчивости
+    # Уменьшен момент инерции платформы для большей неустойчивости
+    segway = SegwayModel(M=10.0, m=2.0, L=0.5, R=0.1, I_p=0.6, I_w=0.1, g=9.81)
     
-    # Начальные условия: небольшое отклонение от вертикали
-    theta0 = np.deg2rad(5.0)  # 5 градусов от вертикали
-    theta_dot0 = 0.0
+    # Начальные условия: отклонение от вертикали
+    # Увеличено для более явного демонстрирования неустойчивости
+    theta0 = np.deg2rad(20.0)  # 20 градусов от вертикали
+    theta_dot0 = np.deg2rad(5.0)  # Начальная угловая скорость для ускорения падения
     phi0 = 0.0
     phi_dot0 = 0.0
     x0 = 0.0
@@ -21,8 +24,8 @@ def main():
     
     initial_state = [theta0, theta_dot0, phi0, phi_dot0, x0, x_dot0]
     
-    # Временной интервал
-    t_span = np.linspace(0, 5.0, 5000)
+    # Временной интервал увеличен для демонстрации падения
+    t_span = np.linspace(0, 25.0, 25000)
     
     # Симуляция свободного движения
     print("Симуляция свободного движения Segway...")
@@ -35,52 +38,54 @@ def main():
     x = sol[:, 4]
     x_dot = sol[:, 5]
     
-    # Построение графиков
-    fig, axes = plt.subplots(3, 2, figsize=(14, 10))
+    # Построение упрощенного графика - только основные переменные
+    fig, axes = plt.subplots(1, 3, figsize=(15, 5))
     
     # Угол наклона платформы
-    axes[0, 0].plot(t_span, np.rad2deg(theta), 'b-', linewidth=2)
-    axes[0, 0].set_xlabel('Время, с')
-    axes[0, 0].set_ylabel('Угол наклона θ, град')
-    axes[0, 0].set_title('Угол наклона платформы (свободное движение)')
-    axes[0, 0].grid(True)
-    axes[0, 0].axhline(y=0, color='r', linestyle='--', alpha=0.5, label='Вертикальное положение')
-    axes[0, 0].legend()
+    theta_deg = np.rad2deg(theta)
+    axes[0].plot(t_span, theta_deg, 'b-', linewidth=2.5, label='Угол наклона')
+    axes[0].set_xlabel('Время, с', fontsize=11)
+    axes[0].set_ylabel('Угол наклона θ, град', fontsize=11)
+    axes[0].set_title('Угол наклона платформы (свободное движение)\nНеустойчивость: амплитуда растет', fontsize=12)
+    axes[0].grid(True, alpha=0.3)
+    axes[0].axhline(y=0, color='r', linestyle='--', alpha=0.5, linewidth=1.5, label='Вертикальное положение')
+    # Добавляем линии, показывающие критический угол падения
+    axes[0].axhline(y=45, color='orange', linestyle=':', alpha=0.7, linewidth=2, label='Критический угол (45°)')
+    axes[0].axhline(y=-45, color='orange', linestyle=':', alpha=0.7, linewidth=2)
     
-    # Угловая скорость наклона
-    axes[0, 1].plot(t_span, np.rad2deg(theta_dot), 'b-', linewidth=2)
-    axes[0, 1].set_xlabel('Время, с')
-    axes[0, 1].set_ylabel('Угловая скорость θ̇, град/с')
-    axes[0, 1].set_title('Угловая скорость наклона платформы')
-    axes[0, 1].grid(True)
+    # Вычисляем огибающую для демонстрации экспоненциального роста
+    # Находим локальные максимумы и минимумы
+    from scipy.signal import find_peaks
+    peaks_pos, _ = find_peaks(theta_deg, distance=100)
+    peaks_neg, _ = find_peaks(-theta_deg, distance=100)
+    
+    if len(peaks_pos) > 0 and len(peaks_neg) > 0:
+        # Рисуем огибающую для демонстрации роста амплитуды
+        envelope_upper = np.interp(t_span, t_span[peaks_pos], theta_deg[peaks_pos])
+        envelope_lower = np.interp(t_span, t_span[peaks_neg], -theta_deg[peaks_neg])
+        axes[0].plot(t_span, envelope_upper, 'r--', linewidth=2, alpha=0.7, label='Рост амплитуды')
+        axes[0].plot(t_span, -envelope_lower, 'r--', linewidth=2, alpha=0.7)
+    
+    # Улучшаем масштаб для лучшей визуализации роста
+    max_theta = np.max(np.abs(theta_deg))
+    axes[0].set_ylim([-max(50, max_theta*1.3), max(50, max_theta*1.3)])
+    axes[0].legend(loc='upper left', fontsize=9)
     
     # Угол поворота колес
-    axes[1, 0].plot(t_span, np.rad2deg(phi), 'g-', linewidth=2)
-    axes[1, 0].set_xlabel('Время, с')
-    axes[1, 0].set_ylabel('Угол поворота φ, град')
-    axes[1, 0].set_title('Угол поворота колес')
-    axes[1, 0].grid(True)
-    
-    # Угловая скорость колес
-    axes[1, 1].plot(t_span, np.rad2deg(phi_dot), 'g-', linewidth=2)
-    axes[1, 1].set_xlabel('Время, с')
-    axes[1, 1].set_ylabel('Угловая скорость φ̇, град/с')
-    axes[1, 1].set_title('Угловая скорость колес')
-    axes[1, 1].grid(True)
+    axes[1].plot(t_span, np.rad2deg(phi), 'g-', linewidth=2.5)
+    axes[1].set_xlabel('Время, с', fontsize=11)
+    axes[1].set_ylabel('Угол поворота φ, град', fontsize=11)
+    axes[1].set_title('Угол поворота колес', fontsize=12)
+    axes[1].grid(True, alpha=0.3)
+    axes[1].axhline(y=0, color='k', linestyle='--', alpha=0.3)
     
     # Горизонтальное положение
-    axes[2, 0].plot(t_span, x, 'r-', linewidth=2)
-    axes[2, 0].set_xlabel('Время, с')
-    axes[2, 0].set_ylabel('Положение x, м')
-    axes[2, 0].set_title('Горизонтальное положение')
-    axes[2, 0].grid(True)
-    
-    # Горизонтальная скорость
-    axes[2, 1].plot(t_span, x_dot, 'r-', linewidth=2)
-    axes[2, 1].set_xlabel('Время, с')
-    axes[2, 1].set_ylabel('Скорость ẋ, м/с')
-    axes[2, 1].set_title('Горизонтальная скорость')
-    axes[2, 1].grid(True)
+    axes[2].plot(t_span, x, 'r-', linewidth=2.5)
+    axes[2].set_xlabel('Время, с', fontsize=11)
+    axes[2].set_ylabel('Положение x, м', fontsize=11)
+    axes[2].set_title('Горизонтальное положение', fontsize=12)
+    axes[2].grid(True, alpha=0.3)
+    axes[2].axhline(y=0, color='k', linestyle='--', alpha=0.3)
     
     plt.tight_layout()
     
@@ -151,13 +156,17 @@ def main():
     
     # Анализ результатов
     print("\n=== Анализ свободного движения ===")
+    print(f"Начальное отклонение: {np.rad2deg(theta0):.2f} град")
     print(f"Максимальное отклонение от вертикали: {np.max(np.abs(np.rad2deg(theta))):.2f} град")
+    print(f"Рост отклонения: {np.max(np.abs(np.rad2deg(theta)))/np.abs(np.rad2deg(theta0)):.2f}x")
     print(f"Время до падения (|theta| > 45°): ", end="")
     fall_idx = np.where(np.abs(theta) > np.deg2rad(45))[0]
     if len(fall_idx) > 0:
         print(f"{t_span[fall_idx[0]]:.2f} с")
+        print(f"✓ Система упала за время симуляции")
     else:
         print("не достигнуто за время симуляции")
+        print(f"  (максимальное отклонение: {np.max(np.abs(np.rad2deg(theta))):.2f}°)")
     print(f"Максимальная горизонтальная скорость: {np.max(np.abs(x_dot)):.3f} м/с")
     print(f"Максимальное смещение по горизонтали: {np.max(np.abs(x)):.3f} м")
 
