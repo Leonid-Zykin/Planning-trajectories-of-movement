@@ -91,7 +91,7 @@ def main():
         u_history.append(u)
     u_history = np.array(u_history)
     
-    # Построение графиков
+    # Построение графиков (расширенная картинка для отчёта)
     fig, axes = plt.subplots(3, 2, figsize=(14, 10))
     
     # Угол наклона платформы
@@ -137,40 +137,60 @@ def main():
     axes[2, 0].grid(True, alpha=0.3)
     axes[2, 0].legend()
     
-    # Ошибка стабилизации
+    # Ошибка стабилизации (используется только в расширенной картинке для отчёта)
     error = np.abs(theta)
     error_deg = np.rad2deg(error)
-    
-    # Используем логарифмическую шкалу для лучшей визуализации экспоненциального убывания
-    # Добавляем небольшое значение для избежания проблем с логарифмом нуля
-    error_log = np.maximum(error_deg, 1e-8)  # Минимальное значение для логарифмической шкалы
-    
+    error_log = np.maximum(error_deg, 1e-8)
     axes[2, 1].semilogy(t_span, error_log, 'm-', linewidth=2, label='Ошибка |θ|')
     axes[2, 1].set_xlabel('Время, с')
     axes[2, 1].set_ylabel('Ошибка |θ|, град (логарифмическая шкала)')
     axes[2, 1].set_title('Ошибка стабилизации (логарифмическая шкала)')
     axes[2, 1].grid(True, which='both', alpha=0.3)
-    
-    # Добавляем горизонтальные линии для ориентира
-    axes[2, 1].axhline(y=1.0, color='orange', linestyle=':', alpha=0.5, linewidth=1)
-    axes[2, 1].axhline(y=0.1, color='orange', linestyle=':', alpha=0.5, linewidth=1)
-    axes[2, 1].axhline(y=1e-6, color='g', linestyle='--', alpha=0.6, linewidth=1.5, label='Порог 1e-6°')
-    
-    # Улучшаем легенду
     axes[2, 1].legend(loc='upper right', fontsize=9)
-    
-    # Устанавливаем разумные пределы для оси Y
-    y_min = max(1e-8, np.min(error_log[error_log > 0]))
-    y_max = max(1.0, np.max(error_log) * 1.1)
-    axes[2, 1].set_ylim([y_min, y_max])
     
     plt.tight_layout()
     
-    # Сохранение графика
+    # Сохранение расширенного графика (для отчёта)
     output_dir = "/home/leonidas/projects/itmo/Planning-trajectories-of-movement/report/images"
     os.makedirs(output_dir, exist_ok=True)
     plt.savefig(os.path.join(output_dir, "controlled_motion.png"), dpi=300, bbox_inches='tight')
     print(f"График сохранен: {output_dir}/controlled_motion.png")
+    plt.close()
+
+    # Упрощённый график для презентации (без фазового портрета и ошибки стабилизации)
+    fig2, axes2 = plt.subplots(2, 2, figsize=(12, 7))
+
+    # Угол наклона
+    axes2[0, 0].plot(t_span, np.rad2deg(theta), 'b-', linewidth=2)
+    axes2[0, 0].set_xlabel('Время, с')
+    axes2[0, 0].set_ylabel('Угол θ, град')
+    axes2[0, 0].set_title('Угол наклона платформы')
+    axes2[0, 0].grid(True)
+
+    # Угловая скорость
+    axes2[0, 1].plot(t_span, np.rad2deg(theta_dot), 'b-', linewidth=2)
+    axes2[0, 1].set_xlabel('Время, с')
+    axes2[0, 1].set_ylabel('Угловая скорость θ̇, град/с')
+    axes2[0, 1].set_title('Угловая скорость наклона')
+    axes2[0, 1].grid(True)
+
+    # Управляющий момент
+    axes2[1, 0].plot(t_span, u_history, 'g-', linewidth=2)
+    axes2[1, 0].set_xlabel('Время, с')
+    axes2[1, 0].set_ylabel('Момент u, Н·м')
+    axes2[1, 0].set_title('Управляющее воздействие')
+    axes2[1, 0].grid(True)
+
+    # Горизонтальное положение
+    axes2[1, 1].plot(t_span, x, 'r-', linewidth=2)
+    axes2[1, 1].set_xlabel('Время, с')
+    axes2[1, 1].set_ylabel('Положение x, м')
+    axes2[1, 1].set_title('Горизонтальное положение')
+    axes2[1, 1].grid(True)
+
+    plt.tight_layout()
+    plt.savefig(os.path.join(output_dir, "controlled_motion_presentation.png"), dpi=300, bbox_inches='tight')
+    print(f"График для презентации сохранен: {output_dir}/controlled_motion_presentation.png")
     plt.close()
     
     # Сравнительный график: свободное vs управляемое движение
